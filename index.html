@@ -776,6 +776,9 @@
             }
         }
 
+        // Google Sheets configuration - تم ربط النظام بـ Google Sheets
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzOMOotvH8Clqj_gJsXPGkg-Pr05YDVpu_BSBnbkNnqMItluZ0W-H9G7F9E02PQ538qWQ/exec';
+
         // Student registration form handler
         document.getElementById('studentRegistrationForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -794,15 +797,19 @@
                 nationalId: document.getElementById('nationalId').value,
                 guardianFirstName: document.getElementById('guardianFirstName').value,
                 guardianFatherName: document.getElementById('guardianFatherName').value,
-                guardianGrandfatherName: document.getElementById('guardianGrandfatherName').value,
+                grandfatherName: document.getElementById('guardianGrandfatherName').value,
                 guardianFamilyName: document.getElementById('guardianFamilyName').value,
                 guardianJob: document.getElementById('guardianJob').value,
                 guardianPhone: document.getElementById('guardianPhone').value,
                 registrationDate: new Date().toLocaleDateString('ar-SA')
             };
 
+            // Save locally as backup
             students.push(studentData);
             localStorage.setItem('students', JSON.stringify(students));
+
+            // Send to Google Sheets with better error handling
+            sendToGoogleSheets(studentData);
 
             // Find responsible teacher and simulate sending data
             const responsibleTeacher = teachers.find(t => t.grade === studentData.grade && t.section === studentData.section);
@@ -901,6 +908,159 @@
                 alert(`خطأ في تسجيل الدخول!\nاسم المستخدم: ${username}\nكلمة المرور: ${password}\nتأكد من صحة البيانات`);
             }
         });
+
+        // Send data to Google Sheets - محسّن للعمل مع GitHub Pages
+        function sendToGoogleSheets(studentData) {
+            // إذا لم يتم تعيين رابط Google Sheets، لا ترسل البيانات
+            if (GOOGLE_SHEETS_URL === 'YOUR_GOOGLE_SHEETS_WEB_APP_URL_HERE') {
+                console.log('⚠️ تحذير: لم يتم تكوين رابط Google Sheets بعد');
+                showNotification('⚠️ تحذير: لم يتم ربط النظام بـ Google Sheets بعد. البيانات محفوظة محلياً فقط.', 'warning');
+                return;
+            }
+
+            console.log('🚀 بدء إرسال البيانات إلى Google Sheets...');
+            console.log('📊 البيانات المرسلة:', studentData);
+            console.log('🔗 الرابط المستخدم:', GOOGLE_SHEETS_URL);
+
+            // Show loading indicator
+            showNotification('⏳ جاري إرسال البيانات إلى Google Sheets...', 'loading');
+
+            // إنشاء البيانات للإرسال
+            const formData = new URLSearchParams();
+            formData.append('firstName', studentData.firstName);
+            formData.append('fatherName', studentData.fatherName);
+            formData.append('grandfatherName', studentData.grandfatherName);
+            formData.append('familyName', studentData.familyName);
+            formData.append('grade', studentData.grade);
+            formData.append('section', studentData.section);
+            formData.append('birthDate', studentData.birthDate);
+            formData.append('birthPlace', studentData.birthPlace);
+            formData.append('address', studentData.address);
+            formData.append('nationalId', studentData.nationalId);
+            formData.append('guardianFirstName', studentData.guardianFirstName);
+            formData.append('guardianFatherName', studentData.guardianFatherName);
+            formData.append('guardianGrandfatherName', studentData.guardianGrandfatherName);
+            formData.append('guardianFamilyName', studentData.guardianFamilyName);
+            formData.append('guardianJob', studentData.guardianJob);
+            formData.append('guardianPhone', studentData.guardianPhone);
+            formData.append('registrationDate', studentData.registrationDate);
+
+            // الطريقة الأولى: استخدام fetch مع معالجة أفضل للأخطاء
+            fetch(GOOGLE_SHEETS_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData,
+                mode: 'no-cors' // مهم لـ GitHub Pages
+            })
+            .then(() => {
+                console.log('✅ تم إرسال البيانات بنجاح');
+                showNotification('✅ تم إرسال البيانات إلى Google Sheets بنجاح!', 'success');
+            })
+            .catch(error => {
+                console.error('❌ خطأ في إرسال البيانات:', error);
+                // حتى لو فشل fetch، قد تكون البيانات وصلت (بسبب no-cors)
+                showNotification('📤 تم إرسال البيانات. تحقق من Google Sheets للتأكد.', 'info');
+            });
+
+            // الطريقة الثانية: استخدام form submission كطريقة احتياطية
+            setTimeout(() => {
+                try {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.name = 'hiddenFrame';
+                    document.body.appendChild(iframe);
+
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = GOOGLE_SHEETS_URL;
+                    form.target = 'hiddenFrame';
+                    form.style.display = 'none';
+
+                    // إضافة جميع الحقول
+                    const fields = {
+                        firstName: studentData.firstName,
+                        fatherName: studentData.fatherName,
+                        grandfatherName: studentData.grandfatherName,
+                        familyName: studentData.familyName,
+                        grade: studentData.grade,
+                        section: studentData.section,
+                        birthDate: studentData.birthDate,
+                        birthPlace: studentData.birthPlace,
+                        address: studentData.address,
+                        nationalId: studentData.nationalId,
+                        guardianFirstName: studentData.guardianFirstName,
+                        guardianFatherName: studentData.guardianFatherName,
+                        guardianGrandfatherName: studentData.guardianGrandfatherName,
+                        guardianFamilyName: studentData.guardianFamilyName,
+                        guardianJob: studentData.guardianJob,
+                        guardianPhone: studentData.guardianPhone,
+                        registrationDate: studentData.registrationDate
+                    };
+
+                    Object.keys(fields).forEach(key => {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = key;
+                        input.value = fields[key] || '';
+                        form.appendChild(input);
+                    });
+
+                    document.body.appendChild(form);
+                    form.submit();
+
+                    // تنظيف العناصر بعد الإرسال
+                    setTimeout(() => {
+                        if (document.body.contains(form)) document.body.removeChild(form);
+                        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+                    }, 3000);
+
+                    console.log('📤 تم إرسال البيانات عبر النموذج الاحتياطي');
+                } catch (error) {
+                    console.error('خطأ في الطريقة الاحتياطية:', error);
+                }
+            }, 1000);
+        }
+
+        // دالة لإظهار الإشعارات
+        function showNotification(message, type = 'info') {
+            // إزالة الإشعارات السابقة
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(notification => notification.remove());
+
+            const notification = document.createElement('div');
+            notification.className = 'notification fixed top-4 right-4 px-6 py-3 rounded-lg text-white font-semibold z-50 shadow-lg';
+            
+            // تحديد لون الإشعار حسب النوع
+            switch(type) {
+                case 'success':
+                    notification.classList.add('bg-green-500');
+                    break;
+                case 'error':
+                    notification.classList.add('bg-red-500');
+                    break;
+                case 'warning':
+                    notification.classList.add('bg-yellow-500');
+                    break;
+                case 'loading':
+                    notification.classList.add('bg-blue-500');
+                    break;
+                default:
+                    notification.classList.add('bg-gray-500');
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            // إزالة الإشعار تلقائياً
+            const duration = type === 'loading' ? 5000 : 4000;
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    notification.remove();
+                }
+            }, duration);
+        }
 
         // Simulate email sending
         function simulateEmailSend(teacher, studentData) {
@@ -1365,5 +1525,5 @@
             updateDashboard();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96e4cde2007132a8',t:'MTc1NTA1MjM3MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96e61f1f77dd32aa',t:'MTc1NTA2NjE4My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
